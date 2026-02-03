@@ -10,13 +10,22 @@ struct HomeView: View {
                 Text("Heads Up")
                     .font(.largeTitle)
                     .bold()
+                
+                TextField("Search decks...", text: $viewModel.searchText)
+                    .textFieldStyle(.roundedBorder)
 
                 RoundLengthPicker(roundLength: $viewModel.roundLength)
 
                 DeckSelectionView(
-                    decks: viewModel.settings.decks,
-                    onToggle: viewModel.toggleDeck
+                    categories: viewModel.filteredDecksByCategory,
+                    areAllEnabled: viewModel.areAllDecksEnabled,
+                    toggleAll: viewModel.setAllDecks,
+                    onToggleDeck: viewModel.toggleDeck,
+                    isFavorite: viewModel.isFavorite,
+                    toggleFavorite: viewModel.toggleFavorite
                 )
+
+
 
                 Button("Start") {
                     startGame = true

@@ -6,6 +6,7 @@ struct DeckRepository {
             Deck(
                 id: "marvel",
                 name: "Marvel Characters",
+                category: .moviesAndTV,
                 words: [
                     "The Avengers",
                     "Iron Man",
@@ -39,6 +40,7 @@ struct DeckRepository {
             Deck(
                 id: "dc",
                 name: "DC Characters",
+                category: .moviesAndTV,
                 words: [
                     "Batman",
                     "Superman",
@@ -65,6 +67,7 @@ struct DeckRepository {
             Deck(
                 id: "og-mc-youtubers",
                 name: "Minecraft YouTubers (OG)",
+                category: .games,
                 words: [
                     "DanTDM",
                     "Dr. Trayaurus",
@@ -91,6 +94,7 @@ struct DeckRepository {
             Deck(
                 id: "hermitcraft",
                 name: "Hermitcraft",
+                category: .games,
                 words: [
                     "Grian",
                     "Mumbo Jumbo",
@@ -115,6 +119,7 @@ struct DeckRepository {
             Deck(
                 id: "fortnite",
                 name: "Fortnite",
+                category: .games,
                 words: [
                     "Battle Bus",
                     "Tilted Towers",
@@ -134,6 +139,7 @@ struct DeckRepository {
             Deck(
                 id: "attack_on_titan",
                 name: "Attack on Titan",
+                category: .anime,
                 words: [
                     "Eren Yeager",
                     "Mikasa Ackerman",
