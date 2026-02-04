@@ -3,14 +3,28 @@ import Foundation
 struct GameSession {
     let duration: Int
     private(set) var remainingTime: Int
+
     private(set) var words: [String]
-    private(set) var currentWordIndex: Int = 0
+    private(set) var currentWordIndex: Int
+
     private(set) var attempts: [WordAttempt] = []
 
-    init(duration: Int, decks: [Deck]) {
+    init(
+        duration: Int,
+        decks: [Deck],
+        words: [String]? = nil,
+        startIndex: Int = 0
+    ) {
         self.duration = duration
         self.remainingTime = duration
-        self.words = decks.flatMap { $0.words }.shuffled()
+
+        if let words {
+            self.words = words
+        } else {
+            self.words = decks.flatMap { $0.words }.shuffled()
+        }
+
+        self.currentWordIndex = startIndex
     }
 
     var currentWord: String {
@@ -33,13 +47,5 @@ struct GameSession {
 
     var isOver: Bool {
         remainingTime <= 0
-    }
-
-    var correctCount: Int {
-        attempts.filter { $0.result == .correct }.count
-    }
-
-    var passCount: Int {
-        attempts.filter { $0.result == .pass }.count
     }
 }

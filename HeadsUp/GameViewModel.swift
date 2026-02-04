@@ -4,27 +4,41 @@ import Combine
 @MainActor
 final class GameViewModel: ObservableObject {
 
-
     @Published private(set) var session: GameSession
     @Published var isGameOver = false
 
-    // Pre-round countdown
+    // Pre-game countdown
     @Published var preGameCountdown: Int? = 3
     @Published var isPreGameCountdownActive = true
 
     let allowsSwipeInput = true
     let allowsTiltInput = true
 
+    private let configuration: GameConfiguration
+    private let carriedWords: [String]
+    private let startIndex: Int
+
     private var gameTimer: AnyCancellable?
     private var countdownTimer: AnyCancellable?
 
-    init(settings: GameSettings) {
+    init(
+        configuration: GameConfiguration,
+        words: [String]? = nil,
+        startIndex: Int = 0
+    ) {
+        self.configuration = configuration
+        self.carriedWords = words ?? []
+        self.startIndex = startIndex
+
         self.session = GameSession(
-            duration: settings.roundLength,
-            decks: settings.enabledDecks
+            duration: configuration.roundLength,
+            decks: configuration.decks,
+            words: words,
+            startIndex: startIndex
         )
     }
 
+    // MARK: - Pre-game Countdown
 
     func startPreGameCountdown() {
         countdownTimer = Timer.publish(every: 1, on: .main, in: .common)
@@ -49,6 +63,7 @@ final class GameViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Game Timer
 
     private func startGame() {
         gameTimer = Timer.publish(every: 1, on: .main, in: .common)
@@ -76,6 +91,7 @@ final class GameViewModel: ObservableObject {
         gameTimer?.cancel()
     }
 
+    // MARK: - Answers
 
     func markCorrect() {
         session.answerCurrentWord(.correct)
@@ -85,5 +101,15 @@ final class GameViewModel: ObservableObject {
     func markPass() {
         session.answerCurrentWord(.pass)
         HapticsManager.shared.play(.wrong)
+    }
+
+    // MARK: - Replay Support
+
+    func replayConfiguration() -> GameConfiguration {
+        configuration
+    }
+
+    func replayWordState() -> (words: [String], index: Int) {
+        (session.words, session.currentWordIndex)
     }
 }

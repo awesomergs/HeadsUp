@@ -2,11 +2,10 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
-    @State private var startGame = false
-    @State private var showDecks = false
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack(spacing: 20) {
                 Spacer()
                 Spacer()
@@ -21,7 +20,12 @@ struct HomeView: View {
                 RoundLengthPicker(roundLength: $viewModel.roundLength)
 
                 Button {
-                    startGame = true
+                    path.append(
+                        GameConfiguration(
+                            roundLength: viewModel.roundLength,
+                            decks: viewModel.enabledDecks
+                        )
+                    )
                 } label: {
                     Text("Start")
                         .font(.headline)
@@ -30,29 +34,38 @@ struct HomeView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.enabledDecks.isEmpty)
-                
-                Spacer()
-                // MARK: - Decks
-                Button {
-                    showDecks = true
-                } label: {
-                    Text("Manage Decks")
-                }
-                .buttonStyle(.bordered)
-                
+
                 Text("\(viewModel.enabledDecks.count) decks in play")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
                 Spacer()
+
+                Button("Manage Decks") {
+                    path.append("decks")
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
                 Spacer()
             }
             .padding()
-            .navigationDestination(isPresented: $startGame) {
-                GameView(settings: viewModel.settings)
+
+            // MARK: - Navigation destinations
+
+            .navigationDestination(for: GameConfiguration.self) { config in
+                GameView(
+                    configuration: config,
+                    goHome: {
+                        path = NavigationPath()   // ✅ THIS IS THE KEY
+                    }
+                )
             }
-            .navigationDestination(isPresented: $showDecks) {
-                DecksView(viewModel: viewModel)
+
+            .navigationDestination(for: String.self) { value in
+                if value == "decks" {
+                    DecksView(viewModel: viewModel)
+                }
             }
         }
     }

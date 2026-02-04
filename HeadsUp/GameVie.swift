@@ -1,14 +1,46 @@
 import SwiftUI
+import UIKit
 
 struct GameView: View {
     @StateObject private var viewModel: GameViewModel
     @State private var motionManager = MotionManager()
 
-    init(settings: GameSettings) {
+    // Replay state
+    @State private var replayConfiguration: GameConfiguration?
+    @State private var replayWords: [String] = []
+    @State private var replayStartIndex: Int = 0
+    @State private var isReplaying = false
+    
+    private let feedbackDelay: TimeInterval = 0.35
+
+
+    // Navigation control (owned by HomeView)
+    let goHome: () -> Void
+
+    // Overlay state
+    @State private var overlayColor: Color = .clear
+    @State private var overlayOpacity: Double = 0.0
+    @State private var overlayScale: CGFloat = 1.0
+
+    // MARK: - Init
+
+    init(
+        configuration: GameConfiguration,
+        words: [String]? = nil,
+        startIndex: Int = 0,
+        goHome: @escaping () -> Void
+    ) {
+        self.goHome = goHome
         _viewModel = StateObject(
-            wrappedValue: GameViewModel(settings: settings)
+            wrappedValue: GameViewModel(
+                configuration: configuration,
+                words: words,
+                startIndex: startIndex
+            )
         )
     }
+
+    // MARK: - Body
 
     var body: some View {
         ZStack {
@@ -17,17 +49,55 @@ struct GameView: View {
             } else {
                 gameView
             }
+
+            // Full-screen color overlay for correct/pass feedback
+            overlayColor
+                .ignoresSafeArea()
+                .opacity(overlayOpacity)
+                .scaleEffect(overlayScale)
+                .animation(.easeOut(duration: 0.25), value: overlayOpacity)
+                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: overlayScale)
         }
         .onAppear {
+            lockToLandscape()
             viewModel.startPreGameCountdown()
             startTiltIfNeeded()
         }
         .onDisappear {
             viewModel.stop()
             motionManager.stop()
+            unlockOrientation()
         }
+
+        // Results screen
         .navigationDestination(isPresented: $viewModel.isGameOver) {
-            ResultsView(attempts: viewModel.session.attempts)
+            ResultsView(
+                attempts: viewModel.session.attempts,
+                onPlayAgain: {
+                    let replayConfig = viewModel.replayConfiguration()
+                    let replayState = viewModel.replayWordState()
+
+                    replayConfiguration = replayConfig
+                    replayWords = replayState.words
+                    replayStartIndex = replayState.index
+                    isReplaying = true
+                },
+                onGoHome: {
+                    goHome()
+                }
+            )
+        }
+
+        // Replay navigation
+        .navigationDestination(isPresented: $isReplaying) {
+            if let replayConfiguration {
+                GameView(
+                    configuration: replayConfiguration,
+                    words: replayWords,
+                    startIndex: replayStartIndex,
+                    goHome: goHome
+                )
+            }
         }
     }
 
@@ -64,13 +134,13 @@ struct GameView: View {
                 .padding()
                 .gesture(swipeGesture)
 
-            HStack {
+            HStack(spacing: 24) {
                 Button("Pass") {
-                    viewModel.markPass()
+                    performPass()
                 }
 
                 Button("Correct") {
-                    viewModel.markCorrect()
+                    performCorrect()
                 }
             }
             .buttonStyle(.bordered)
@@ -78,7 +148,7 @@ struct GameView: View {
         .padding()
     }
 
-    // MARK: - Timer Color (end-of-round warning)
+    // MARK: - Timer Color (last seconds warning)
 
     private var timerColor: Color {
         switch viewModel.session.remainingTime {
@@ -86,6 +156,44 @@ struct GameView: View {
         case 2: return .orange
         case 1: return .red
         default: return .primary
+        }
+    }
+
+    // MARK: - Input Actions (centralized so overlay + haptics are consistent)
+
+    private func performCorrect() {
+        showOverlay(color: .green)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + feedbackDelay) {
+            viewModel.markCorrect()
+        }
+    }
+
+    private func performPass() {
+        showOverlay(color: .red)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + feedbackDelay) {
+            viewModel.markPass()
+        }
+    }
+
+
+    // MARK: - Overlay animation
+
+    private func showOverlay(color: Color) {
+        overlayColor = color
+        overlayScale = 1.0
+        overlayOpacity = 0.7
+
+        // quick pop
+        overlayScale = 1.05
+
+        // fade out after short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                overlayOpacity = 0.0
+                overlayScale = 1.0
+            }
         }
     }
 
@@ -97,9 +205,9 @@ struct GameView: View {
                 guard viewModel.allowsSwipeInput else { return }
 
                 if value.translation.height < -30 {
-                    viewModel.markCorrect()
+                    performCorrect()
                 } else if value.translation.height > 30 {
-                    viewModel.markPass()
+                    performPass()
                 }
             }
     }
@@ -109,18 +217,31 @@ struct GameView: View {
     private func startTiltIfNeeded() {
         guard viewModel.allowsTiltInput else { return }
 
-        motionManager.onTiltUp = {
+        motionManager.onCorrect = {
             DispatchQueue.main.async {
-                viewModel.markCorrect()
+                performCorrect()
             }
         }
 
-        motionManager.onTiltDown = {
+        motionManager.onPass = {
             DispatchQueue.main.async {
-                viewModel.markPass()
+                performPass()
             }
         }
 
         motionManager.start()
+    }
+
+    // MARK: - Orientation Locking
+
+    private func lockToLandscape() {
+        // Force device orientation to landscape right (common for Heads Up)
+        UIDevice.current.setValue(UIInterfaceOrientation.landscapeRight.rawValue, forKey: "orientation")
+        // Note: You can also set UIWindowScene's interface orientations via Info.plist or AppDelegate for stricter control
+    }
+
+    private func unlockOrientation() {
+        // Restore to portrait
+        UIDevice.current.setValue(UIInterfaceOrientation.portrait.rawValue, forKey: "orientation")
     }
 }
