@@ -11,10 +11,52 @@ struct GameView: View {
     }
 
     var body: some View {
+        ZStack {
+            if viewModel.isPreGameCountdownActive {
+                preGameCountdownView
+            } else {
+                gameView
+            }
+        }
+        .onAppear {
+            viewModel.startPreGameCountdown()
+            startTiltIfNeeded()
+        }
+        .onDisappear {
+            viewModel.stop()
+            motionManager.stop()
+        }
+        .navigationDestination(isPresented: $viewModel.isGameOver) {
+            ResultsView(attempts: viewModel.session.attempts)
+        }
+    }
+
+    // MARK: - Pre-game Countdown UI
+
+    private var preGameCountdownView: some View {
+        Text(preGameText)
+            .font(.system(size: 120, weight: .bold))
+            .foregroundStyle(.primary)
+            .scaleEffect(1.2)
+            .animation(.easeOut(duration: 0.3), value: viewModel.preGameCountdown)
+    }
+
+    private var preGameText: String {
+        if let value = viewModel.preGameCountdown {
+            return "\(value)"
+        } else {
+            return "GO"
+        }
+    }
+
+    // MARK: - Game UI
+
+    private var gameView: some View {
         VStack(spacing: 32) {
             Text("\(viewModel.session.remainingTime)")
                 .font(.title)
                 .bold()
+                .foregroundStyle(timerColor)
 
             Text(viewModel.session.currentWord)
                 .font(.largeTitle)
@@ -22,7 +64,6 @@ struct GameView: View {
                 .padding()
                 .gesture(swipeGesture)
 
-            // Temporary button (safe to remove later)
             HStack {
                 Button("Pass") {
                     viewModel.markPass()
@@ -35,18 +76,20 @@ struct GameView: View {
             .buttonStyle(.bordered)
         }
         .padding()
-        .onAppear {
-            viewModel.start()
-            startTiltIfNeeded()
-        }
-        .onDisappear {
-            viewModel.stop()
-            motionManager.stop()
-        }
-        .navigationDestination(isPresented: $viewModel.isGameOver) {
-            ResultsView(attempts: viewModel.session.attempts)
+    }
+
+    // MARK: - Timer Color (end-of-round warning)
+
+    private var timerColor: Color {
+        switch viewModel.session.remainingTime {
+        case 3: return .yellow
+        case 2: return .orange
+        case 1: return .red
+        default: return .primary
         }
     }
+
+    // MARK: - Swipe Input
 
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 50)
@@ -60,6 +103,8 @@ struct GameView: View {
                 }
             }
     }
+
+    // MARK: - Tilt Input
 
     private func startTiltIfNeeded() {
         guard viewModel.allowsTiltInput else { return }

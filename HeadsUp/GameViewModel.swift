@@ -3,14 +3,20 @@ import Combine
 
 @MainActor
 final class GameViewModel: ObservableObject {
+
+
     @Published private(set) var session: GameSession
     @Published var isGameOver = false
 
-    // input toggles, so i could remove the swipe later if i feel so (lowk leaning towards keeping it tho)
+    // Pre-round countdown
+    @Published var preGameCountdown: Int? = 3
+    @Published var isPreGameCountdownActive = true
+
     let allowsSwipeInput = true
     let allowsTiltInput = true
 
-    private var timer: AnyCancellable?
+    private var gameTimer: AnyCancellable?
+    private var countdownTimer: AnyCancellable?
 
     init(settings: GameSettings) {
         self.session = GameSession(
@@ -19,31 +25,65 @@ final class GameViewModel: ObservableObject {
         )
     }
 
-    func start() {
-        timer = Timer.publish(every: 1, on: .main, in: .common)
+
+    func startPreGameCountdown() {
+        countdownTimer = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.tick()
+                self?.tickPreGameCountdown()
             }
     }
 
-    func stop() {
-        timer?.cancel()
+    private func tickPreGameCountdown() {
+        guard let value = preGameCountdown else { return }
+
+        if value > 1 {
+            preGameCountdown = value - 1
+            HapticsManager.shared.play(.countdownTick)
+        } else {
+            countdownTimer?.cancel()
+            preGameCountdown = nil
+            isPreGameCountdownActive = false
+            HapticsManager.shared.play(.countdownGo)
+            startGame()
+        }
     }
+
+
+    private func startGame() {
+        gameTimer = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.tickGame()
+            }
+    }
+
+    private func tickGame() {
+        session.tick()
+
+        if session.remainingTime <= 3 && session.remainingTime > 0 {
+            HapticsManager.shared.play(.finalSeconds)
+        }
+
+        if session.isOver {
+            stop()
+            HapticsManager.shared.play(.gameEnd)
+            isGameOver = true
+        }
+    }
+
+    func stop() {
+        gameTimer?.cancel()
+    }
+
 
     func markCorrect() {
         session.answerCurrentWord(.correct)
+        HapticsManager.shared.play(.correct)
     }
 
     func markPass() {
         session.answerCurrentWord(.pass)
-    }
-
-    private func tick() {
-        session.tick()
-        if session.isOver {
-            stop()
-            isGameOver = true
-        }
+        HapticsManager.shared.play(.wrong)
     }
 }
