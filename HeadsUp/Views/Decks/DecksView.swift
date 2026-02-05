@@ -7,9 +7,14 @@ struct DecksView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
 
-                // MARK: - Search
-                TextField("Search decks...", text: $viewModel.searchText)
-                    .textFieldStyle(.roundedBorder)
+                HStack {
+                    TextField("Search decks...", text: $viewModel.searchText)
+                        .textFieldStyle(.roundedBorder)
+
+                    Text("\(viewModel.totalWordsInPlay) words in play")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
 
                 // MARK: - Decks
                 DeckSelectionView(
